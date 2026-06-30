@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equity Table — Hold'em Odds Calculator</title>
+<meta name="description" content="A Monte Carlo equity calculator for Texas Hold'em, with hand rankings, pot odds, and a poker glossary all in one place.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+    --bg: #0E1B16;
+    --felt: #16302494;
+    --felt-solid: #173326;
+    --felt-light: #1E3D2C;
+    --rail: #0A1410;
+    --cream: #EFE7D2;
+    --cream-dim: #C9C0A8;
+    --gold: #C9A227;
+    --gold-dim: #8A7223;
+    --crimson: #C24B4B;
+    --crimson-dim: #7A2F2F;
+    --ink: #15140F;
+    --line: rgba(239,231,210,0.12);
+    --line-strong: rgba(239,231,210,0.22);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: radial-gradient(ellipse at 50% -10%, #1A3527 0%, var(--bg) 55%);
+    color: var(--cream);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      radial-gradient(circle at 8% 12%, rgba(201,162,39,0.05) 0%, transparent 32%),
+      radial-gradient(circle at 92% 78%, rgba(201,162,39,0.05) 0%, transparent 32%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px 100px;position:relative;z-index:1;}
+
+  .suit-row{
+    display:flex;gap:14px;margin-bottom:22px;font-size:20px;color:var(--gold-dim);
+    letter-spacing:.3em;
+  }
+  .suit-row span:nth-child(2),.suit-row span:nth-child(4){color:var(--crimson-dim);}
+
+  .felt-panel, .results-panel{position:relative;overflow:hidden;}
+  .felt-panel::after, .results-panel::after{
+    content:"";position:absolute;top:14px;left:14px;width:22px;height:22px;
+    border-top:1px solid rgba(201,162,39,0.35);border-left:1px solid rgba(201,162,39,0.35);
+    border-radius:6px 0 0 0;pointer-events:none;
+  }
+  .felt-panel .corner-br, .results-panel .corner-br{
+    content:"";position:absolute;bottom:14px;right:14px;width:22px;height:22px;
+    border-bottom:1px solid rgba(201,162,39,0.35);border-right:1px solid rgba(201,162,39,0.35);
+    border-radius:0 0 6px 0;pointer-events:none;
+  }
+
+  .felt-watermark{
+    position:absolute;right:18px;bottom:10px;font-size:64px;color:rgba(201,162,39,0.05);
+    pointer-events:none;line-height:1;user-select:none;
+  }
+
+  .divider-suits{
+    display:flex;align-items:center;justify-content:center;gap:18px;margin:64px 0 0;
+    color:var(--gold-dim);font-size:15px;
+  }
+  .divider-suits::before, .divider-suits::after{
+    content:"";flex:1;height:1px;background:var(--line);max-width:220px;
+  }
+  .divider-suits span:nth-child(2){color:var(--crimson-dim);}
+  .divider-suits span:nth-child(4){color:var(--crimson-dim);}
+
+  /* HERO */
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--gold);margin:0 0 14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:clamp(36px,5.4vw,58px);
+    line-height:1.05;
+    margin:0 0 18px;
+    color:var(--cream);
+  }
+  h1 em{font-style:italic;color:var(--gold);font-weight:500;}
+  .lede{
+    font-size:17px;line-height:1.65;color:var(--cream-dim);max-width:560px;margin:0 0 8px;
+  }
+
+  /* SECTION LABELS */
+  .section-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--gold-dim);margin:0 0 14px;display:flex;align-items:center;gap:10px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  /* TABLE LAYOUT */
+  .table-area{
+    display:grid;grid-template-columns: 1.1fr 0.9fr;gap:28px;margin-top:56px;
+  }
+  @media (max-width:860px){ .table-area{grid-template-columns:1fr;} }
+
+  .felt-panel{
+    background: linear-gradient(160deg, var(--felt-light), var(--felt-solid));
+    border:1px solid var(--line-strong);
+    border-radius:18px;
+    padding:28px;
+    position:relative;
+  }
+  .felt-panel::before{
+    content:"";position:absolute;inset:8px;border:1px solid rgba(201,162,39,0.15);
+    border-radius:12px;pointer-events:none;
+  }
+
+  /* SLOTS */
+  .slot-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
+  .slot-group{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+  .slot-title{font-size:13px;color:var(--cream-dim);}
+  .slots{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .card-slot{
+    width:54px;height:74px;border-radius:7px;
+    border:1.5px dashed var(--line-strong);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;
+    color:var(--cream-dim);cursor:pointer;background:rgba(0,0,0,0.15);
+    transition:all .12s ease;position:relative;
+  }
+  .card-slot:hover{border-color:var(--gold);}
+  .card-slot.active{border-style:solid;border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,0.18);}
+  .card-slot.filled{
+    background:var(--cream);border-style:solid;border-color:var(--line-strong);
+    color:var(--ink);
+  }
+  .card-slot.filled.red{color:var(--crimson-dim);}
+  .card-slot .x{
+    position:absolute;top:-7px;right:-7px;width:18px;height:18px;border-radius:50%;
+    background:var(--rail);border:1px solid var(--line-strong);color:var(--cream-dim);
+    font-size:11px;line-height:16px;text-align:center;display:none;cursor:pointer;
+  }
+  .card-slot.filled:hover .x{display:block;}
+
+  /* DECK PICKER */
+  .deck{
+    display:grid;grid-template-columns:repeat(13,1fr);gap:5px;margin-top:4px;
+  }
+  .deck-card{
+    aspect-ratio: 5/7;
+    border-radius:4px;border:1px solid var(--line);
+    background:rgba(239,231,210,0.06);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+    color:var(--cream-dim);cursor:pointer;transition:all .1s ease;
+  }
+  .deck-card:hover{background:rgba(201,162,39,0.25);color:var(--cream);border-color:var(--gold);}
+  .deck-card.used{opacity:0.18;pointer-events:none;}
+  .deck-card.red{color:var(--crimson);}
+  .deck-card.red:hover{color:var(--crimson);}
+
+  /* CONTROLS */
+  .controls{display:flex;flex-direction:column;gap:18px;margin-top:24px;}
+  .ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .ctrl-row label{font-size:13px;color:var(--cream-dim);}
+  .stepper{display:flex;align-items:center;gap:10px;}
+  .stepper button{
+    width:30px;height:30px;border-radius:50%;border:1px solid var(--line-strong);
+    background:transparent;color:var(--cream);font-size:16px;cursor:pointer;
+  }
+  .stepper button:hover{border-color:var(--gold);color:var(--gold);}
+  .stepper span{font-family:'JetBrains Mono',monospace;font-size:15px;min-width:20px;text-align:center;}
+
+  select{
+    background:rgba(0,0,0,0.25);border:1px solid var(--line-strong);color:var(--cream);
+    font-family:'JetBrains Mono',monospace;font-size:13px;padding:6px 10px;border-radius:6px;
+  }
+
+  .run-btn{
+    margin-top:8px;
+    background:var(--gold);color:#241D08;border:none;border-radius:10px;
+    font-family:'Fraunces',serif;font-weight:600;font-size:17px;
+    padding:14px 20px;cursor:pointer;transition:transform .08s ease, background .15s ease;
+  }
+  .run-btn:hover{background:#DCB738;}
+  .run-btn:active{transform:scale(0.98);}
+  .run-btn:disabled{opacity:0.5;cursor:default;}
+
+  .clear-link{
+    background:none;border:none;color:var(--cream-dim);font-size:12.5px;cursor:pointer;
+    text-decoration:underline;text-underline-offset:3px;padding:0;align-self:flex-start;
+  }
+  .clear-link:hover{color:var(--gold);}
+
+  .money-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .money-field{display:flex;flex-direction:column;gap:7px;}
+  .money-field label{font-size:12.5px;color:var(--cream-dim);}
+  .money-input{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(0,0,0,0.25);border:1px solid var(--line-strong);border-radius:8px;
+    padding:8px 12px;
+  }
+  .money-input span{color:var(--gold-dim);font-family:'JetBrains Mono',monospace;font-size:14px;}
+  .money-input input{
+    background:none;border:none;outline:none;color:var(--cream);
+    font-family:'JetBrains Mono',monospace;font-size:14px;width:100%;
+  }
+  .money-input input::-webkit-outer-spin-button,
+  .money-input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .money-hint{font-size:12px;color:var(--cream-dim);line-height:1.55;margin:14px 0 0;}
+
+  .advice-card{
+    width:100%;margin-top:24px;padding-top:22px;border-top:1px solid var(--line);
+  }
+  .advice-verdict{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:10px;
+  }
+  .advice-verdict .word{
+    font-family:'Fraunces',serif;font-weight:600;font-size:26px;
+  }
+  .advice-verdict .word.call{color:var(--gold);}
+  .advice-verdict .word.fold{color:var(--crimson);}
+  .advice-verdict .word.raise{color:#7FB069;}
+  .advice-verdict .word.check{color:var(--cream);}
+  .advice-reason{font-size:13.5px;line-height:1.65;color:var(--cream-dim);margin:0 0 14px;}
+  .advice-stats{display:flex;flex-direction:column;gap:8px;width:100%;}
+  .advice-stat-row{display:flex;justify-content:space-between;font-size:13px;}
+  .advice-stat-row .k{color:var(--cream-dim);}
+  .advice-stat-row .v{font-family:'JetBrains Mono',monospace;color:var(--cream);}
+
+  /* RESULTS PANEL */
+  .results-panel{
+    background:var(--rail);
+    border:1px solid var(--line-strong);
+    border-radius:18px;
+    padding:28px;
+    display:flex;flex-direction:column;align-items:center;
+    min-height:100%;
+  }
+  .equity-row{
+    display:flex;align-items:center;gap:28px;width:100%;flex-wrap:wrap;
+  }
+  .equity-row .gauge-wrap{margin:0;flex-shrink:0;}
+  .equity-row .legend{margin-top:0;flex:1;min-width:160px;}
+  .gauge-wrap{position:relative;width:172px;height:172px;margin:0;}
+  .gauge-wrap svg{width:100%;height:100%;}
+  .gauge-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+  }
+  .gauge-pct{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:32px;color:var(--cream);}
+  .gauge-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cream-dim);margin-top:2px;}
+
+  .legend{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:6px;}
+  .legend-row{display:flex;align-items:center;gap:10px;font-size:13.5px;}
+  .swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+  .legend-row .name{color:var(--cream-dim);flex:1;}
+  .legend-row .val{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--cream);}
+
+  .progress-line{width:100%;height:3px;background:rgba(239,231,210,0.1);border-radius:2px;overflow:hidden;margin-top:18px;}
+  .progress-fill{height:100%;width:0%;background:var(--gold);transition:width .1s linear;}
+  .status-text{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--cream-dim);margin-top:8px;text-align:center;}
+
+  .placeholder{
+    color:var(--cream-dim);font-size:13.5px;text-align:center;line-height:1.6;
+    padding:40px 12px;
+  }
+  .placeholder .ti{font-size:30px;display:block;margin-bottom:14px;color:var(--gold-dim);}
+
+  footer{margin-top:60px;font-size:12px;color:var(--cream-dim);text-align:center;}
+
+  /* SITE HEADER */
+  .site-header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(14,27,22,0.86);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .site-header-inner{
+    max-width:1080px;margin:0 auto;padding:16px 28px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Fraunces',serif;font-weight:600;font-size:18px;color:var(--cream);text-decoration:none;}
+  .brand .chip{
+    width:26px;height:26px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #DCB738, var(--gold-dim));
+    border:1px solid rgba(0,0,0,0.25);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:#241D08;flex-shrink:0;
+  }
+  .site-nav{display:flex;align-items:center;gap:28px;}
+  .site-nav a{
+    color:var(--cream-dim);text-decoration:none;font-size:13.5px;
+    transition:color .12s ease;
+  }
+  .site-nav a:hover{color:var(--gold);}
+  .nav-cta{
+    color:var(--ink) !important;background:var(--gold);
+    padding:8px 16px;border-radius:8px;font-weight:600;
+  }
+  .nav-cta:hover{background:#DCB738 !important;color:var(--ink) !important;}
+  @media (max-width:680px){ .site-nav a:not(.nav-cta){display:none;} }
+
+  /* HERO BAND */
+  .hero-band{
+    position:relative;
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+  }
+  .hero-band::before{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(ellipse 700px 380px at 18% 0%, rgba(201,162,39,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 600px 420px at 100% 30%, rgba(30,61,44,0.55) 0%, transparent 65%);
+    pointer-events:none;
+  }
+  .hero-inner{max-width:1080px;margin:0 auto;padding:72px 28px 56px;position:relative;}
+  .hero-suits{position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:120px;line-height:1;color:rgba(201,162,39,0.06);letter-spacing:-12px;pointer-events:none;display:flex;}
+  @media (max-width:860px){ .hero-suits{display:none;} }
+
+  /* SITE FOOTER */
+  .site-footer{
+    border-top:1px solid var(--line);
+    margin-top:72px;
+    background:var(--rail);
+  }
+  .footer-inner{max-width:1080px;margin:0 auto;padding:48px 28px 36px;}
+  .footer-top{
+    display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;
+    padding-bottom:32px;border-bottom:1px solid var(--line);margin-bottom:24px;
+  }
+  .footer-brand-col{max-width:320px;}
+  .footer-brand-col p{font-size:13px;color:var(--cream-dim);line-height:1.65;margin:12px 0 0;}
+  .footer-cols{display:flex;gap:56px;flex-wrap:wrap;}
+  .footer-col h4{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--gold-dim);margin:0 0 14px;font-weight:400;
+  }
+  .footer-col a{display:block;color:var(--cream-dim);text-decoration:none;font-size:13.5px;margin-bottom:10px;}
+  .footer-col a:hover{color:var(--gold);}
+  .footer-bottom{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    font-size:12px;color:var(--cream-dim);
+  }
+  .footer-bottom .suits{letter-spacing:.3em;color:var(--gold-dim);}
+
+  .how-section{margin-top:80px;}
+  .steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px;}
+  @media (max-width:760px){ .steps-grid{grid-template-columns:1fr;} }
+  .step-card{
+    background:var(--rail);border:1px solid var(--line-strong);border-radius:14px;
+    padding:22px;
+  }
+  .step-num{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold);
+    border:1px solid var(--line-strong);width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  }
+  .step-card h3{font-family:'Fraunces',serif;font-weight:500;font-size:17px;margin:0 0 8px;color:var(--cream);}
+  .step-card p{font-size:13.5px;line-height:1.6;color:var(--cream-dim);margin:0;}
+
+/* CONTENT PAGES */
+.page-header{padding:56px 0 36px;border-bottom:1px solid var(--line);margin-bottom:48px;}
+.page-eyebrow{
+  font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);margin:0 0 14px;
+}
+.page-header h1{
+  font-family:'Fraunces',serif;font-weight:500;font-size:clamp(30px,4.4vw,44px);
+  line-height:1.08;margin:0 0 14px;color:var(--cream);
+}
+.page-header .lede{font-size:16px;max-width:620px;}
+
+.prose{font-size:15.5px;line-height:1.75;color:var(--cream-dim);max-width:680px;}
+.prose h2{
+  font-family:'Fraunces',serif;font-weight:500;font-size:22px;color:var(--cream);
+  margin:44px 0 14px;
+}
+.prose h2:first-child{margin-top:0;}
+.prose p{margin:0 0 16px;}
+.prose strong{color:var(--cream);font-weight:600;}
+.prose a{color:var(--gold);text-decoration:underline;text-underline-offset:3px;}
+.prose ul, .prose ol{margin:0 0 16px;padding-left:20px;}
+.prose li{margin-bottom:8px;}
+
+/* HAND RANKINGS TABLE */
+.rank-list{display:flex;flex-direction:column;gap:10px;margin:28px 0 8px;}
+.rank-row{
+  display:grid;grid-template-columns:34px 1fr auto;gap:16px;align-items:center;
+  background:var(--rail);border:1px solid var(--line-strong);border-radius:10px;
+  padding:14px 18px;
+}
+.rank-row .pos{
+  font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold);
+  width:28px;height:28px;border-radius:50%;border:1px solid var(--line-strong);
+  display:flex;align-items:center;justify-content:center;
+}
+.rank-row .info h3{font-family:'Fraunces',serif;font-weight:500;font-size:15.5px;margin:0 0 3px;color:var(--cream);}
+.rank-row .info p{font-size:13px;color:var(--cream-dim);margin:0;}
+.rank-row .ex{
+  font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cream-dim);
+  letter-spacing:.04em;white-space:nowrap;
+}
+.rank-row .ex .r{color:var(--crimson-dim);}
+
+/* GLOSSARY */
+.glossary-search{
+  width:100%;max-width:360px;margin:0 0 32px;
+  background:rgba(0,0,0,0.25);border:1px solid var(--line-strong);border-radius:8px;
+  padding:10px 14px;color:var(--cream);font-family:'Inter',sans-serif;font-size:14px;outline:none;
+}
+.glossary-search::placeholder{color:var(--cream-dim);}
+.glossary-grid{display:flex;flex-direction:column;gap:0;}
+.gloss-entry{padding:18px 0;border-bottom:1px solid var(--line);}
+.gloss-entry dt{
+  font-family:'Fraunces',serif;font-weight:500;font-size:16.5px;color:var(--cream);margin-bottom:6px;
+}
+.gloss-entry dd{font-size:14px;line-height:1.65;color:var(--cream-dim);margin:0;}
+.gloss-entry.hidden{display:none;}
+
+/* PAGE CTA */
+.page-cta{
+  margin:56px 0 0;padding:32px;border-radius:14px;
+  background:linear-gradient(160deg, var(--felt-light), var(--felt-solid));
+  border:1px solid var(--line-strong);
+  display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+}
+.page-cta h3{font-family:'Fraunces',serif;font-weight:500;font-size:19px;margin:0 0 6px;color:var(--cream);}
+.page-cta p{font-size:13.5px;color:var(--cream-dim);margin:0;}
+.page-cta .btn-gold{
+  flex-shrink:0;background:var(--gold);color:#241D08;border:none;border-radius:9px;
+  font-family:'Fraunces',serif;font-weight:600;font-size:15px;padding:12px 22px;
+  text-decoration:none;display:inline-block;
+}
+.page-cta .btn-gold:hover{background:#DCB738;}
+
+
+.route-section{display:none;}
+.route-section.active{display:block;}
+.site-nav a.is-active{color:var(--gold);}
+
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="#home" onclick="navigate('home');" class="brand"><span class="chip">♠</span>Equity Table</a>
+    <nav class="site-nav">
+      <a href="#calculator" data-nav="home" onclick="navigate('home');">Calculator</a>
+      <a href="#rankings" data-nav="rankings" onclick="navigate('rankings');">Hand rankings</a>
+      <a href="#pot-odds" data-nav="pot-odds" onclick="navigate('pot-odds');">Pot odds</a>
+      <a href="#glossary" data-nav="glossary" onclick="navigate('glossary');">Glossary</a>
+      <a href="#calculator" data-nav="home" onclick="navigate('home');" class="nav-cta">Run a hand</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="route-section active" id="route-home">
+<div class="hero-band">
+  <div class="hero-inner">
+    <div class="hero-suits"><span>♠</span><span>♥</span></div>
+    <p class="eyebrow">Texas Hold'em — Monte Carlo equity engine</p>
+    <div class="suit-row"><span>♠</span><span>♥</span><span>♣</span><span>♦</span></div>
+    <h1>What are your <em>real</em> odds<br>of winning this hand?</h1>
+    <p class="lede">Pick your hole cards, set the board and the number of opponents, and run thousands of simulated outcomes to see your true win, tie, and loss probabilities.</p>
+  </div>
+</div>
+
+<div class="wrap" id="calculator">
+
+  <div class="table-area">
+
+    <div class="felt-panel">
+      <div class="corner-br"></div>
+      <div class="felt-watermark">♠</div>
+
+      <div class="section-label">Your hand</div>
+      <div class="slot-group">
+        <div class="slots" id="holeSlots"></div>
+      </div>
+
+      <div class="section-label">Community board <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--cream-dim);">(optional)</span></div>
+      <div class="slot-group">
+        <div class="slots" id="boardSlots"></div>
+      </div>
+
+      <div class="section-label">Choose a card</div>
+      <div class="deck" id="deckGrid"></div>
+
+      <div style="margin-top:14px;">
+        <button class="clear-link" id="clearBtn">Clear all cards</button>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-row">
+          <label>Opponents at the table</label>
+          <div class="stepper">
+            <button id="oppMinus">−</button>
+            <span id="oppCount">1</span>
+            <button id="oppPlus">+</button>
+          </div>
+        </div>
+        <div class="ctrl-row">
+          <label>Simulation precision</label>
+          <select id="trialSelect">
+            <option value="5000">Fast — 5,000 hands</option>
+            <option value="20000" selected>Standard — 20,000 hands</option>
+            <option value="60000">Precise — 60,000 hands</option>
+            <option value="150000">Exhaustive — 150,000 hands</option>
+          </select>
+        </div>
+        <button class="run-btn" id="runBtn">Run simulation</button>
+      </div>
+
+    </div>
+
+    <div class="felt-panel" id="moneyPanel" style="margin-top:24px;">
+      <div class="corner-br"></div>
+      <div class="section-label">Money on the table</div>
+      <div class="money-grid">
+        <div class="money-field">
+          <label for="buyIn">Buy-in</label>
+          <div class="money-input"><span>$</span><input type="number" id="buyIn" min="0" placeholder="0" value="200"></div>
+        </div>
+        <div class="money-field">
+          <label for="stack">Your current stack</label>
+          <div class="money-input"><span>$</span><input type="number" id="stack" min="0" placeholder="0" value="200"></div>
+        </div>
+        <div class="money-field">
+          <label for="potSize">Money already in pot</label>
+          <div class="money-input"><span>$</span><input type="number" id="potSize" min="0" placeholder="0" value="0"></div>
+        </div>
+        <div class="money-field">
+          <label for="toCall">Amount to call</label>
+          <div class="money-input"><span>$</span><input type="number" id="toCall" min="0" placeholder="0" value="0"></div>
+        </div>
+      </div>
+      <p class="money-hint">These numbers are only used to work out pot odds and a suggested action — they don't affect the equity simulation itself.</p>
+    </div>
+
+    <div class="results-panel">
+      <div class="corner-br"></div>
+      <div class="felt-watermark">♦</div>
+      <div id="resultsPanel" style="display:flex;flex-direction:column;align-items:center;width:100%;">
+      <div class="placeholder" id="placeholder">
+        <i class="emoji-placeholder">♠</i>
+        Pick at least your two hole cards, then run the simulation to see your equity.
+      </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider-suits"><span>♠</span><span>♥</span><span>♣</span><span>♦</span></div>
+
+  <section class="how-section" id="how-it-works">
+    <div class="section-label">How it works</div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>Set the cards you know</h3>
+        <p>Enter your hole cards and any board cards that have already been dealt. Leave the rest open — the engine fills them in.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>Deal it out, thousands of times</h3>
+        <p>Each trial randomly deals the remaining board and opponent hole cards from what's left in the deck, then scores every hand.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>Get equity, not guesswork</h3>
+        <p>Outcomes are tallied into win, tie, and loss rates, then compared against your pot odds for a straightforward fold, call, or raise read.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</section>
+
+<section class="route-section" id="route-rankings">
+<div class="wrap">
+
+  <div class="page-header">
+    <p class="page-eyebrow">Reference</p>
+    <h1>Poker hand rankings</h1>
+    <p class="lede">Every five-card poker hand falls into one of ten categories. Here's the complete order, from strongest to weakest, with an example of each.</p>
+  </div>
+
+  <div class="rank-list">
+    <div class="rank-row">
+      <div class="pos">1</div>
+      <div class="info"><h3>Royal flush</h3><p>Ace-high straight, all one suit. The best possible hand.</p></div>
+      <div class="ex">A♠ K♠ Q♠ J♠ T♠</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">2</div>
+      <div class="info"><h3>Straight flush</h3><p>Five consecutive cards, all the same suit.</p></div>
+      <div class="ex">9♥ 8♥ 7♥ 6♥ <span class="r">5♥</span></div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">3</div>
+      <div class="info"><h3>Four of a kind</h3><p>All four cards of one rank, plus any fifth card.</p></div>
+      <div class="ex">K♠ K♥ K♦ K♣ 4♣</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">4</div>
+      <div class="info"><h3>Full house</h3><p>Three of a kind plus a separate pair.</p></div>
+      <div class="ex">Q♠ Q♥ Q♦ 8♣ <span class="r">8♥</span></div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">5</div>
+      <div class="info"><h3>Flush</h3><p>Five cards of the same suit, not in sequence.</p></div>
+      <div class="ex">A♣ J♣ 9♣ 6♣ 2♣</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">6</div>
+      <div class="info"><h3>Straight</h3><p>Five consecutive cards of mixed suits.</p></div>
+      <div class="ex">8♠ 7♥ 6♦ 5♣ <span class="r">4♥</span></div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">7</div>
+      <div class="info"><h3>Three of a kind</h3><p>Three cards of one rank, plus two unrelated cards.</p></div>
+      <div class="ex">7♠ 7♥ 7♦ K♣ 2♠</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">8</div>
+      <div class="info"><h3>Two pair</h3><p>Two separate pairs, plus one unrelated card.</p></div>
+      <div class="ex">J♠ J♥ 5♦ <span class="r">5♥</span> 9♣</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">9</div>
+      <div class="info"><h3>One pair</h3><p>Two cards of one rank, plus three unrelated cards.</p></div>
+      <div class="ex">T♠ T♥ A♦ 6♣ 3♠</div>
+    </div>
+    <div class="rank-row">
+      <div class="pos">10</div>
+      <div class="info"><h3>High card</h3><p>No pair, no sequence, no matching suits. Ranked by the highest card.</p></div>
+      <div class="ex">A♠ Q♥ 8♦ 5♣ 2♠</div>
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:48px;">
+    <h2>How ties are broken</h2>
+    <p>When two players hold the same hand category, the tiebreaker works through the ranks involved in that hand, then any remaining cards (called <strong>kickers</strong>). Two players with a pair of kings compare their next-highest card; if those match too, the comparison keeps moving down the hand until a difference is found or the pot is split.</p>
+    <p>A straight or flush is compared by its highest card. A full house or two pair is compared first by the higher of the matched ranks, then the lower. Suits never break ties in standard Hold'em — a flush in hearts is exactly as strong as a flush in spades with the same card ranks.</p>
+    <h2>Why this matters for equity</h2>
+    <p>Knowing the ranking order is the starting point, but it doesn't tell you how often a given hand actually wins at a real table with real opponents and a real board. That's a function of how many ways your hand and the remaining cards can combine — which is exactly what a Monte Carlo simulation calculates by dealing out thousands of possible outcomes.</p>
+  </div>
+
+  <div class="page-cta">
+    <div>
+      <h3>See these rankings in action</h3>
+      <p>Plug in a hand and find out your actual win percentage against any number of opponents.</p>
+    </div>
+    <a href="#calculator" onclick="navigate('home');" class="btn-gold">Open the calculator</a>
+  </div>
+
+</div>
+
+</section>
+
+<section class="route-section" id="route-pot-odds">
+<div class="wrap">
+
+  <div class="page-header">
+    <p class="page-eyebrow">Guide</p>
+    <h1>Pot odds and equity, explained simply</h1>
+    <p class="lede">These two numbers are what turn a gut feeling into a decision. Here's what they mean, how they're calculated, and how the calculator uses them to suggest fold, call, or raise.</p>
+  </div>
+
+  <div class="prose">
+    <h2>What equity actually means</h2>
+    <p>Your <strong>equity</strong> in a hand is your share of the pot if it were dealt out to the river right now, averaged over every way the remaining cards could fall. A hand with 35% equity wins the pot roughly 35 times out of 100 if the hand were replayed to completion. It has nothing to do with how the betting goes — it's purely a function of your cards, the board, and how many opponents you're up against.</p>
+    <p>Equity isn't something you can count on your fingers for most hands, which is why simulation is useful: dealing the hand out thousands of times and tallying the outcomes gives a far more accurate number than rules of thumb.</p>
+
+    <h2>What pot odds mean</h2>
+    <p>Pot odds compare the size of a bet you're facing to the size of the pot you'd be winning. If there's $80 in the pot and your opponent bets $20, you're being asked to risk $20 to win $100 total (the $80 already there, plus their $20). That's pot odds of 20-to-100, or a 20% breakeven price — you need to win the hand at least 20% of the time for the call to make money over the long run.</p>
+    <p>The formula is straightforward:</p>
+    <p style="font-family:'JetBrains Mono',monospace;color:var(--cream);background:var(--rail);border:1px solid var(--line-strong);border-radius:8px;padding:14px 18px;">breakeven equity = amount to call ÷ (pot + amount to call)</p>
+
+    <h2>Comparing the two</h2>
+    <p>Once you know both numbers, the decision is a comparison:</p>
+    <ul>
+      <li>If your <strong>equity is higher</strong> than the breakeven percentage, calling is profitable in the long run, even though you'll still lose plenty of individual hands.</li>
+      <li>If your <strong>equity is lower</strong>, calling loses money on average, even if it feels right in the moment.</li>
+      <li>If your equity clears the breakeven number by a wide margin, that's usually a signal you can bet or raise rather than just call, since you're a clear favorite.</li>
+    </ul>
+
+    <h2>Where this gets harder in practice</h2>
+    <p>Two things make this trickier at a real table. First, you don't know your opponents' exact cards, only a range of what they're likely to hold — which is why the calculator lets you simulate against random hands rather than a single known hand. Second, pot odds alone ignore future betting rounds: sometimes a call is correct because of the money you stand to win later (implied odds), even if the immediate numbers look marginal. The calculator's suggestion handles the immediate math; reading the rest of the hand is still on you.</p>
+  </div>
+
+  <div class="page-cta">
+    <div>
+      <h3>Run the numbers on your hand</h3>
+      <p>Enter your cards, the pot, and what you're facing — get your equity and a straight suggestion.</p>
+    </div>
+    <a href="#calculator" onclick="navigate('home');" class="btn-gold">Open the calculator</a>
+  </div>
+
+</div>
+
+</section>
+
+<section class="route-section" id="route-glossary">
+<div class="wrap">
+
+  <div class="page-header">
+    <p class="page-eyebrow">Reference</p>
+    <h1>Poker glossary</h1>
+    <p class="lede">Common Texas Hold'em terms in plain language. Search to jump straight to a word.</p>
+  </div>
+
+  <input type="text" class="glossary-search" id="glossSearch" placeholder="Search terms…">
+
+  <dl class="glossary-grid" id="glossList">
+
+    <div class="gloss-entry"><dt>Blinds</dt><dd>Forced bets posted before cards are dealt — the small blind and big blind — that seed the pot and give everyone a reason to play.</dd></div>
+    <div class="gloss-entry"><dt>Board</dt><dd>The community cards dealt face-up in the middle of the table, shared by every player.</dd></div>
+    <div class="gloss-entry"><dt>Buy-in</dt><dd>The amount of money you exchange for chips to sit down at a table or enter a tournament.</dd></div>
+    <div class="gloss-entry"><dt>Button</dt><dd>The marker showing which player is the dealer for the current hand. It moves one seat clockwise each hand.</dd></div>
+    <div class="gloss-entry"><dt>Call</dt><dd>Matching the current bet to stay in the hand without raising it further.</dd></div>
+    <div class="gloss-entry"><dt>Check</dt><dd>Passing the action to the next player without betting, only possible when no bet is currently facing you.</dd></div>
+    <div class="gloss-entry"><dt>Community cards</dt><dd>See Board.</dd></div>
+    <div class="gloss-entry"><dt>Draw</dt><dd>A hand that isn't complete yet but could become strong with the right next card, such as a flush draw or straight draw.</dd></div>
+    <div class="gloss-entry"><dt>Equity</dt><dd>Your share of the pot if the hand were played out to the end many times over — expressed as a percentage chance of winning.</dd></div>
+    <div class="gloss-entry"><dt>Flop</dt><dd>The first three community cards, dealt together after the first betting round.</dd></div>
+    <div class="gloss-entry"><dt>Fold</dt><dd>Giving up your hand and any claim to the pot, forfeiting whatever you've already put in.</dd></div>
+    <div class="gloss-entry"><dt>Hole cards</dt><dd>The two private cards dealt to each player at the start of a hand, visible only to that player.</dd></div>
+    <div class="gloss-entry"><dt>Implied odds</dt><dd>An adjustment to pot odds that accounts for money you expect to win in later betting rounds if you complete your hand.</dd></div>
+    <div class="gloss-entry"><dt>Kicker</dt><dd>An unpaired card used to break ties between two otherwise identical hands, such as two players both holding a pair of aces.</dd></div>
+    <div class="gloss-entry"><dt>Outs</dt><dd>The cards remaining in the deck that would improve your hand to a likely winner.</dd></div>
+    <div class="gloss-entry"><dt>Pocket pair</dt><dd>Two hole cards of the same rank, such as pocket kings.</dd></div>
+    <div class="gloss-entry"><dt>Pot odds</dt><dd>The ratio between a bet you're facing and the total size of the pot, used to work out the breakeven equity needed to call profitably.</dd></div>
+    <div class="gloss-entry"><dt>Preflop</dt><dd>The first betting round, happening before any community cards are dealt.</dd></div>
+    <div class="gloss-entry"><dt>Range</dt><dd>The full set of hands a player could realistically hold in a given situation, based on their actions so far.</dd></div>
+    <div class="gloss-entry"><dt>Raise</dt><dd>Increasing the size of the current bet, forcing other players to match the new amount or fold.</dd></div>
+    <div class="gloss-entry"><dt>River</dt><dd>The fifth and final community card, dealt after the turn.</dd></div>
+    <div class="gloss-entry"><dt>Showdown</dt><dd>The point at the end of a hand where remaining players reveal their cards to determine the winner.</dd></div>
+    <div class="gloss-entry"><dt>Stack</dt><dd>The total amount of chips a player currently has in front of them.</dd></div>
+    <div class="gloss-entry"><dt>Suited</dt><dd>Two hole cards of the same suit, such as the ace and king of spades.</dd></div>
+    <div class="gloss-entry"><dt>Turn</dt><dd>The fourth community card, dealt after the flop and before the river.</dd></div>
+
+  </dl>
+
+  <div class="page-cta">
+    <div>
+      <h3>Put these terms to use</h3>
+      <p>Enter a hand and see how equity and pot odds play out for a real decision.</p>
+    </div>
+    <a href="#calculator" onclick="navigate('home');" class="btn-gold">Open the calculator</a>
+  </div>
+
+</div>
+
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <a href="#home" onclick="navigate('home');" class="brand"><span class="chip">♠</span>Equity Table</a>
+        <p>A Monte Carlo equity calculator for Texas Hold'em. Deal out thousands of simulated hands to see your real win, tie, and loss probabilities — and what to do about them.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Tool</h4>
+          <a href="#calculator" onclick="navigate('home');">Run the calculator</a>
+        </div>
+        <div class="footer-col">
+          <h4>Learn</h4>
+          <a href="#rankings" onclick="navigate('rankings');">Hand rankings</a>
+          <a href="#pot-odds" onclick="navigate('pot-odds');">Pot odds and equity</a>
+          <a href="#glossary" onclick="navigate('glossary');">Poker glossary</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>Equity Table — a hand-strength simulator, not financial advice.</span>
+      <span class="suits">♠ ♥ ♣ ♦</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+
+const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+const RANK_VAL = {}; RANKS.forEach((r,i)=>RANK_VAL[r]=i+2);
+const SUITS = ['s','h','d','c'];
+const SUIT_SYM = {s:'♠', h:'♥', d:'♦', c:'♣'};
+const SUIT_RED = {s:false, h:true, d:false, c:true};
+
+function cardId(rank, suit){ return rank+suit; }
+
+let holeCards = [null, null];
+let boardCards = [null, null, null, null, null];
+let activeSlot = {group:'hole', index:0};
+let numOpponents = 1;
+
+function allUsedCards(){
+  return [...holeCards, ...boardCards].filter(Boolean);
+}
+
+function buildSlots(){
+  const holeDiv = document.getElementById('holeSlots');
+  holeDiv.innerHTML = '';
+  holeCards.forEach((c,i)=>{
+    holeDiv.appendChild(makeSlotEl('hole', i, c));
+  });
+
+  const boardDiv = document.getElementById('boardSlots');
+  boardDiv.innerHTML = '';
+  boardCards.forEach((c,i)=>{
+    boardDiv.appendChild(makeSlotEl('board', i, c));
+  });
+}
+
+function makeSlotEl(group, index, card){
+  const el = document.createElement('div');
+  el.className = 'card-slot';
+  if (card){
+    el.classList.add('filled');
+    if (SUIT_RED[card.slice(-1)]) el.classList.add('red');
+    el.innerHTML = card[0] + SUIT_SYM[card.slice(-1)] + '<span class="x">✕</span>';
+    el.querySelector('.x').onclick = (e)=>{
+      e.stopPropagation();
+      if (group==='hole') holeCards[index]=null; else boardCards[index]=null;
+      buildSlots(); buildDeck();
+    };
+  }
+  if (activeSlot.group===group && activeSlot.index===index){
+    el.classList.add('active');
+  }
+  el.onclick = ()=>{
+    activeSlot = {group, index};
+    buildSlots();
+  };
+  return el;
+}
+
+function buildDeck(){
+  const used = new Set(allUsedCards());
+  const grid = document.getElementById('deckGrid');
+  grid.innerHTML = '';
+  SUITS.forEach(suit=>{
+    RANKS.slice().reverse().forEach(rank=>{
+      const id = cardId(rank, suit);
+      const el = document.createElement('div');
+      el.className = 'deck-card' + (SUIT_RED[suit] ? ' red':'') + (used.has(id) ? ' used':'');
+      el.textContent = rank + SUIT_SYM[suit];
+      el.onclick = ()=> assignCard(id);
+      grid.appendChild(el);
+    });
+  });
+}
+
+function assignCard(id){
+  const used = new Set(allUsedCards());
+  if (used.has(id)) return;
+  if (activeSlot.group==='hole'){
+    holeCards[activeSlot.index] = id;
+  } else {
+    boardCards[activeSlot.index] = id;
+  }
+  advanceSlot();
+  buildSlots();
+  buildDeck();
+}
+
+function advanceSlot(){
+  if (activeSlot.group==='hole'){
+    if (activeSlot.index===0 && !holeCards[1]){ activeSlot={group:'hole',index:1}; return; }
+    for (let i=0;i<5;i++){ if(!boardCards[i]){ activeSlot={group:'board',index:i}; return; } }
+    activeSlot={group:'hole',index:0};
+  } else {
+    for (let i=activeSlot.index+1;i<5;i++){ if(!boardCards[i]){ activeSlot={group:'board',index:i}; return; } }
+    if (!holeCards[0]){ activeSlot={group:'hole',index:0}; return; }
+    if (!holeCards[1]){ activeSlot={group:'hole',index:1}; return; }
+  }
+}
+
+document.getElementById('clearBtn').onclick = ()=>{
+  holeCards=[null,null]; boardCards=[null,null,null,null,null];
+  activeSlot={group:'hole',index:0};
+  buildSlots(); buildDeck();
+  resetResults();
+};
+
+document.getElementById('oppMinus').onclick = ()=>{
+  numOpponents = Math.max(1, numOpponents-1);
+  document.getElementById('oppCount').textContent = numOpponents;
+};
+document.getElementById('oppPlus').onclick = ()=>{
+  numOpponents = Math.min(8, numOpponents+1);
+  document.getElementById('oppCount').textContent = numOpponents;
+};
+
+buildSlots();
+buildDeck();
+
+/* ---------------- Hand evaluator ---------------- */
+
+function rankIndex(r){ return RANK_VAL[r]; }
+
+function evaluate5(cards){
+  // cards: array of 5 strings like "Th","9s"
+  const ranks = cards.map(c=>rankIndex(c[0])).sort((a,b)=>b-a);
+  const suits = cards.map(c=>c.slice(-1));
+  const isFlush = suits.every(s=>s===suits[0]);
+
+  const counts = {};
+  ranks.forEach(r=>counts[r]=(counts[r]||0)+1);
+  const groups = Object.entries(counts).map(([r,c])=>[parseInt(r),c]);
+  groups.sort((a,b)=> b[1]-a[1] || b[0]-a[0]);
+
+  let uniq = [...new Set(ranks)].sort((a,b)=>b-a);
+  let isStraight = false, straightHigh = 0;
+  if (uniq.length===5){
+    if (uniq[0]-uniq[4]===4){ isStraight=true; straightHigh=uniq[0]; }
+    else if (JSON.stringify(uniq)===JSON.stringify([14,5,4,3,2])){ isStraight=true; straightHigh=5; }
+  }
+
+  if (isStraight && isFlush) return [8, straightHigh];
+  if (groups[0][1]===4) return [7, groups[0][0], groups[1][0]];
+  if (groups[0][1]===3 && groups[1][1]===2) return [6, groups[0][0], groups[1][0]];
+  if (isFlush) return [5, ...ranks];
+  if (isStraight) return [4, straightHigh];
+  if (groups[0][1]===3) return [3, groups[0][0], ...groups.slice(1).map(g=>g[0])];
+  if (groups[0][1]===2 && groups[1][1]===2){
+    const pairRanks=[groups[0][0],groups[1][0]].sort((a,b)=>b-a);
+    return [2, pairRanks[0], pairRanks[1], groups[2][0]];
+  }
+  if (groups[0][1]===2) return [1, groups[0][0], ...groups.slice(1).map(g=>g[0])];
+  return [0, ...ranks];
+}
+
+function compareScore(a,b){
+  const len = Math.max(a.length,b.length);
+  for (let i=0;i<len;i++){
+    const av=a[i]||0, bv=b[i]||0;
+    if (av!==bv) return av-bv;
+  }
+  return 0;
+}
+
+function combinations5from7(cards){
+  const res=[];
+  const n=cards.length;
+  for(let a=0;a<n;a++)for(let b=a+1;b<n;b++)for(let c=b+1;c<n;c++)for(let d=c+1;d<n;d++)for(let e=d+1;e<n;e++){
+    res.push([cards[a],cards[b],cards[c],cards[d],cards[e]]);
+  }
+  return res;
+}
+
+function best7(cards){
+  let best=null;
+  combinations5from7(cards).forEach(combo=>{
+    const score = evaluate5(combo);
+    if (best===null || compareScore(score,best)>0) best=score;
+  });
+  return best;
+}
+
+function fullDeck(){
+  const d=[];
+  SUITS.forEach(s=>RANKS.forEach(r=>d.push(r+s)));
+  return d;
+}
+
+function shuffle(arr){
+  for (let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+/* ---------------- Simulation runner ---------------- */
+
+let simRunning = false;
+
+document.getElementById('runBtn').onclick = ()=>{
+  if (simRunning) return;
+  if (!holeCards[0] || !holeCards[1]){
+    alert('Pick both of your hole cards first.');
+    return;
+  }
+  const knownBoard = boardCards.filter(Boolean);
+  const totalTrials = parseInt(document.getElementById('trialSelect').value);
+  runSimulation(holeCards.slice(), knownBoard, numOpponents, totalTrials);
+};
+
+function resetResults(){
+  document.getElementById('resultsPanel').innerHTML = `
+    <div class="placeholder" id="placeholder">
+      <i class="emoji-placeholder">♠</i>
+      Pick at least your two hole cards, then run the simulation to see your equity.
+    </div>`;
+}
+
+function showProgressUI(){
+  document.getElementById('resultsPanel').innerHTML = `
+    <div style="width:100%;">
+      <div class="section-label" style="margin-bottom:24px;">Simulating</div>
+      <div class="progress-line"><div class="progress-fill" id="progFill"></div></div>
+      <div class="status-text" id="statusText">0 / 0 hands</div>
+    </div>`;
+}
+
+function runSimulation(hole, knownBoard, opponents, totalTrials){
+  simRunning = true;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBtn').textContent = 'Simulating…';
+  showProgressUI();
+
+  const used = new Set([...hole, ...knownBoard]);
+  const baseDeck = fullDeck().filter(c=>!used.has(c));
+
+  let wins=0, ties=0, losses=0;
+  let equitySum=0;
+  let trialsRun=0;
+  const chunkSize = 1500;
+
+  function step(){
+    const end = Math.min(trialsRun+chunkSize, totalTrials);
+    for (let t=trialsRun; t<end; t++){
+      const deck = baseDeck.slice();
+      shuffle(deck);
+
+      let di=0;
+      const board = knownBoard.slice();
+      while (board.length<5){ board.push(deck[di++]); }
+
+      const oppHands=[];
+      for (let o=0;o<opponents;o++){
+        oppHands.push([deck[di++], deck[di++]]);
+      }
+
+      const heroScore = best7([...hole, ...board]);
+      const oppScores = oppHands.map(h=>best7([...h, ...board]));
+
+      let maxScore = heroScore;
+      oppScores.forEach(s=>{ if (compareScore(s,maxScore)>0) maxScore=s; });
+
+      const heroIsMax = compareScore(heroScore, maxScore)===0;
+      let tiedCount = heroIsMax ? 1 : 0;
+      oppScores.forEach(s=>{ if (compareScore(s,maxScore)===0) tiedCount++; });
+
+      if (!heroIsMax){
+        losses++;
+      } else if (tiedCount===1){
+        wins++; equitySum+=1;
+      } else {
+        ties++; equitySum += 1/tiedCount;
+      }
+    }
+    trialsRun = end;
+
+    const pct = Math.round((trialsRun/totalTrials)*100);
+    const fillEl = document.getElementById('progFill');
+    const statusEl = document.getElementById('statusText');
+    if (fillEl) fillEl.style.width = pct+'%';
+    if (statusEl) statusEl.textContent = trialsRun.toLocaleString()+' / '+totalTrials.toLocaleString()+' hands';
+
+    if (trialsRun<totalTrials){
+      requestAnimationFrame(step);
+    } else {
+      finishSimulation(wins, ties, losses, equitySum, totalTrials);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function finishSimulation(wins, ties, losses, equitySum, total){
+  simRunning = false;
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('runBtn').textContent = 'Run simulation';
+
+  const winPct = (wins/total*100);
+  const tiePct = (ties/total*100);
+  const lossPct = (losses/total*100);
+  const equityPct = (equitySum/total*100);
+
+  const circumference = 2*Math.PI*80;
+  const winLen = circumference*(winPct/100);
+  const tieLen = circumference*(tiePct/100);
+  const lossLen = circumference*(lossPct/100);
+
+  document.getElementById('resultsPanel').innerHTML = `
+    <div class="section-label" style="align-self:flex-start;">Equity result</div>
+    <div class="equity-row">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(239,231,210,0.08)" stroke-width="16"/>
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#C9A227" stroke-width="16"
+          stroke-dasharray="${winLen} ${circumference-winLen}" stroke-dashoffset="0"
+          transform="rotate(-90 100 100)" stroke-linecap="butt"/>
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#8A7223" stroke-width="16"
+          stroke-dasharray="${tieLen} ${circumference-tieLen}" stroke-dashoffset="${-winLen}"
+          transform="rotate(-90 100 100)" stroke-linecap="butt"/>
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#C24B4B" stroke-width="16"
+          stroke-dasharray="${lossLen} ${circumference-lossLen}" stroke-dashoffset="${-(winLen+tieLen)}"
+          transform="rotate(-90 100 100)" stroke-linecap="butt"/>
+      </svg>
+      <div class="gauge-center">
+        <div class="gauge-pct">${equityPct.toFixed(1)}%</div>
+        <div class="gauge-label">total equity</div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-row"><div class="swatch" style="background:#C9A227;"></div><div class="name">Win outright</div><div class="val">${winPct.toFixed(1)}%</div></div>
+      <div class="legend-row"><div class="swatch" style="background:#8A7223;"></div><div class="name">Tie / split pot</div><div class="val">${tiePct.toFixed(1)}%</div></div>
+      <div class="legend-row"><div class="swatch" style="background:#C24B4B;"></div><div class="name">Lose</div><div class="val">${lossPct.toFixed(1)}%</div></div>
+    </div>
+    </div>
+  </div>
+    <div class="status-text" style="margin-top:18px;">${total.toLocaleString()} hands simulated vs ${numOpponents} opponent${numOpponents>1?'s':''}</div>
+    <div class="advice-card" id="adviceCard"></div>
+  `;
+  renderAdvice(equityPct);
+}
+
+function renderAdvice(equityPct){
+  const buyIn = parseFloat(document.getElementById('buyIn').value) || 0;
+  const stack = parseFloat(document.getElementById('stack').value) || 0;
+  const pot = parseFloat(document.getElementById('potSize').value) || 0;
+  const toCall = parseFloat(document.getElementById('toCall').value) || 0;
+
+  const equity = equityPct/100;
+  const adviceCard = document.getElementById('adviceCard');
+  if (!adviceCard) return;
+
+  // No bet facing you
+  if (toCall<=0){
+    const word = equity>=0.5 ? 'Bet or raise' : 'Check';
+    const wordClass = equity>=0.5 ? 'raise' : 'check';
+    const reason = equity>=0.5
+      ? `With ${(equity*100).toFixed(1)}% equity you're the likely favorite here. Betting builds the pot while you're ahead and can fold out hands that might improve against you.`
+      : `Nobody has bet, and at ${(equity*100).toFixed(1)}% equity you're not a favorite. Checking lets you see the next card for free instead of building a pot you're more likely to lose.`;
+    adviceCard.innerHTML = `
+      <div class="advice-verdict"><span class="word ${wordClass}">${word}</span></div>
+      <p class="advice-reason">${reason}</p>
+      <div class="advice-stats">
+        <div class="advice-stat-row"><span class="k">Your equity</span><span class="v">${(equity*100).toFixed(1)}%</span></div>
+        <div class="advice-stat-row"><span class="k">Current stack</span><span class="v">$${stack.toLocaleString()}</span></div>
+      </div>`;
+    return;
+  }
+
+  const callOdds = toCall / (pot + toCall); // breakeven equity needed to call
+  const goingAllIn = toCall >= stack && stack>0;
+  const effectiveCall = goingAllIn ? stack : toCall;
+  const stackAfterCall = stack - effectiveCall;
+  const riskingBuyInPct = buyIn>0 ? (effectiveCall/buyIn*100) : 0;
+
+  let word, wordClass, reason;
+
+  if (equity >= callOdds + 0.08){
+    word = stackAfterCall<=0 ? 'Call — all in' : 'Raise';
+    wordClass = 'raise';
+    reason = `Your equity (${(equity*100).toFixed(1)}%) clears the ${(callOdds*100).toFixed(1)}% you need just to break even on this call by a healthy margin. You're a clear favorite, so building the pot now is worth more than playing passively.`;
+  } else if (equity >= callOdds){
+    word = goingAllIn ? 'Call — all in' : 'Call';
+    wordClass = 'call';
+    reason = `Calling $${effectiveCall.toLocaleString()} needs ${(callOdds*100).toFixed(1)}% equity to break even, and you have ${(equity*100).toFixed(1)}%. That's a profitable call over the long run, even if you don't win this exact hand.`;
+  } else {
+    word = 'Fold';
+    wordClass = 'fold';
+    reason = `You need ${(callOdds*100).toFixed(1)}% equity to profitably call $${effectiveCall.toLocaleString()}, but you only have ${(equity*100).toFixed(1)}%. Calling here loses money on average — folding keeps your stack for a better spot.`;
+  }
+
+  if (goingAllIn && stack>0 && word!=='Fold'){
+    reason += ` Note this call uses your entire $${stack.toLocaleString()} stack.`;
+  }
+
+  adviceCard.innerHTML = `
+    <div class="advice-verdict"><span class="word ${wordClass}">${word}</span></div>
+    <p class="advice-reason">${reason}</p>
+    <div class="advice-stats">
+      <div class="advice-stat-row"><span class="k">Your equity</span><span class="v">${(equity*100).toFixed(1)}%</span></div>
+      <div class="advice-stat-row"><span class="k">Equity needed to break even</span><span class="v">${(callOdds*100).toFixed(1)}%</span></div>
+      <div class="advice-stat-row"><span class="k">Pot odds</span><span class="v">${pot.toLocaleString()} : ${toCall.toLocaleString()}</span></div>
+      <div class="advice-stat-row"><span class="k">Stack after calling</span><span class="v">$${Math.max(stackAfterCall,0).toLocaleString()}</span></div>
+      ${buyIn>0 ? `<div class="advice-stat-row"><span class="k">% of buy-in at risk</span><span class="v">${riskingBuyInPct.toFixed(1)}%</span></div>` : ''}
+    </div>`;
+}
+
+
+const searchInput = document.getElementById('glossSearch');
+const entries = document.querySelectorAll('.gloss-entry');
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim().toLowerCase();
+  entries.forEach(entry=>{
+    const text = entry.textContent.toLowerCase();
+    entry.classList.toggle('hidden', q.length>0 && !text.includes(q));
+  });
+});
+
+
+function navigate(route){
+  document.querySelectorAll('.route-section').forEach(s=>{
+    s.classList.toggle('active', s.id === 'route-' + route);
+  });
+  document.querySelectorAll('.site-nav a[data-nav]').forEach(a=>{
+    a.classList.toggle('is-active', a.getAttribute('data-nav') === route);
+  });
+  window.scrollTo({top:0, behavior:'instant'});
+  if (history.replaceState){
+    history.replaceState(null, '', route==='home' ? '#home' : '#'+route);
+  }
+}
+
+function routeFromHash(){
+  const hash = (location.hash || '#home').slice(1);
+  if (hash === 'calculator' || hash === 'home' || hash === '') return 'home';
+  if (['rankings','pot-odds','glossary'].includes(hash)) return hash;
+  return 'home';
+}
+
+window.addEventListener('hashchange', ()=>{
+  navigate(routeFromHash());
+  if (location.hash === '#calculator'){
+    const el = document.getElementById('calculator');
+    if (el) el.scrollIntoView({behavior:'smooth'});
+  }
+});
+
+navigate(routeFromHash());
+</script>
+
+</body>
+</html>
